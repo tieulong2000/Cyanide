@@ -603,7 +603,7 @@ bool quickloader_run_js_string(NSString *jsCode) {
         
         context[@"locsim_start_route"] = ^NSNumber*(NSString *jsonString) {
 
-            if (!repotweaks_generation_is_active(runGeneration))
+            if (!quickloader_generation_is_active(runGeneration))
                 return @(NO);
 
             if (![jsonString isKindOfClass:NSString.class] ||
@@ -735,8 +735,15 @@ bool quickloader_run_js_string(NSString *jsCode) {
             log_user("[RepoTweaks][LOCSIM] Starting route with %zu points\n",
                     validCount);
 
-            bool ok =
-                locationsim_apply_static(&config);
+            __block bool ok = false;
+
+            if ([NSThread isMainThread]) {
+                ok = locationsim_apply_static(&config);
+            } else {
+                dispatch_sync(dispatch_get_main_queue(), ^{
+                    ok = locationsim_apply_static(&config);
+                });
+            }
 
             /*
             * Có thể free ở đây vì location_sim.m đã biến
@@ -752,13 +759,24 @@ bool quickloader_run_js_string(NSString *jsCode) {
         };
         context[@"locsim_stop"] = ^NSNumber*{
 
-            if (!repotweaks_generation_is_active(runGeneration))
+            if (!quickloader_generation_is_active(runGeneration))
                 return @(NO);
 
             log_user("[RepoTweaks][LOCSIM] Stopping simulation\n");
 
-            bool ok =
-                locationsim_stop("Maps", true);
+            __block bool ok = false;
+
+            if ([NSThread isMainThread]) {
+
+                ok = locationsim_stop("Maps", true);
+
+            } else {
+
+                dispatch_sync(dispatch_get_main_queue(), ^{
+                    ok = locationsim_stop("Maps", true);
+                });
+
+            }
 
             log_user("[RepoTweaks][LOCSIM] Stop => %s\n",
                     ok ? "OK" : "FAILED");
