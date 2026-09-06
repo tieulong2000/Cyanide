@@ -13,7 +13,7 @@
 #import <CommonCrypto/CommonDigest.h>
 #import <math.h>
 #import <pthread.h>
-
+#import "../tweaks/location_sim.h"
 extern uint64_t r_nsstr_retained(const char *str);
 
 static const NSUInteger kRepoTweaksMaxRepoBytes = 512 * 1024;
@@ -661,7 +661,30 @@ bool repotweaks_run_isolated_js(NSString *tweakID, NSString *tweakName, NSString
         context[@"locsim_test"] = ^(){
             log_user("Hello from JS\n");
         };
+        context[@"locsim_start"] = ^(NSNumber *lat, NSNumber *lon) {
 
+            LocationSimConfig cfg = {
+                .latitude = lat.doubleValue,
+                .longitude = lon.doubleValue,
+                .altitude = 0.0,
+                .horizontalAccuracy = 5.0,
+                .verticalAccuracy = 5.0,
+                .hostProcess = "Maps",
+                .launchHost = true,
+            };
+
+            bool ok = locationsim_apply_static(&cfg);
+
+            log_user("[RepoTweaks] locsim_start = %s\n",
+                    ok ? "OK" : "FAILED");
+        };
+        context[@"locsim_stop"] = ^{
+
+            bool ok = locationsim_stop("Maps", true);
+
+            log_user("[RepoTweaks] locsim_stop = %s\n",
+                    ok ? "OK" : "FAILED");
+        };
         log_user("[RepoTweaks] Spawning sandbox for: %s\n", safeName.UTF8String);
         [context evaluateScript:jsCode];
         if (context.exception) ok = false;
