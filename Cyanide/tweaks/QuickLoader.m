@@ -19,6 +19,7 @@
 #import "../LogTextView.h"
 
 #import "../tweaks/location_sim.h"
+#import "../tweaks/motion_sim.h"
 // Rung
 #import <UIKit/UIKit.h>
 #import <AudioToolbox/AudioToolbox.h>
@@ -848,6 +849,120 @@ bool quickloader_run_js_string(NSString *jsCode) {
             dispatch_async(dispatch_get_main_queue(), ^{
                 AudioServicesPlaySystemSound(kSystemSoundID_Vibrate);
             });
+        };
+        context[@"motionsim_start"] = ^NSNumber*(NSNumber *speedKmh,
+                  NSNumber *intensity) {
+
+            if (!quickloader_generation_is_active(runGeneration))
+                return @(NO);
+
+            double speed = 5.0;
+            double strength = 1.0;
+
+            if ([speedKmh isKindOfClass:NSNumber.class])
+                speed = speedKmh.doubleValue;
+
+            if ([intensity isKindOfClass:NSNumber.class])
+                strength = intensity.doubleValue;
+
+            MotionSimConfig config = {
+                .speedKmh = speed,
+                .intensity = strength
+            };
+
+            bool ok =
+                motionsim_start(&config);
+
+            log_user(
+                "[QuickLoader][MOTIONSIM] start speed=%.2f km/h intensity=%.2f result=%s\n",
+                speed,
+                strength,
+                ok ? "OK" : "FAILED"
+            );
+
+            return @(ok);
+        };
+
+        context[@"motionsim_stop"] = ^NSNumber*{
+
+            if (!quickloader_generation_is_active(runGeneration))
+                return @(NO);
+
+            bool ok = motionsim_stop();
+
+            log_user(
+                "[QuickLoader][MOTIONSIM] stop => %s\n",
+                ok ? "OK" : "FAILED"
+            );
+
+            return @(ok);
+        };
+
+        context[@"motionsim_sample"] = ^NSDictionary*{
+
+            MotionSimSample s =
+                motionsim_current_sample();
+
+            return @{
+                @"ax": @(s.accelX),
+                @"ay": @(s.accelY),
+                @"az": @(s.accelZ),
+
+                @"gx": @(s.gyroX),
+                @"gy": @(s.gyroY),
+                @"gz": @(s.gyroZ)
+            };
+        };
+        context[@"motionsim_coremotion_test"] = ^{
+
+            static CMMotionManager *manager = nil;
+
+            manager =
+                [[CMMotionManager alloc] init];
+
+            manager.accelerometerUpdateInterval = 0.1;
+            manager.gyroUpdateInterval = 0.1;
+
+            NSOperationQueue *queue =
+                [[NSOperationQueue alloc] init];
+
+            if (manager.accelerometerAvailable) {
+
+                [manager
+                    startAccelerometerUpdatesToQueue:queue
+                    withHandler:^(
+                        CMAccelerometerData *data,
+                        NSError *error)
+                {
+                    if (data) {
+                        NSLog(
+                            @"[REAL ACC] %.3f %.3f %.3f",
+                            data.acceleration.x,
+                            data.acceleration.y,
+                            data.acceleration.z
+                        );
+                    }
+                }];
+            }
+
+            if (manager.gyroAvailable) {
+
+                [manager
+                    startGyroUpdatesToQueue:queue
+                    withHandler:^(
+                        CMGyroData *data,
+                        NSError *error)
+                {
+                    if (data) {
+                        NSLog(
+                            @"[REAL GYRO] %.3f %.3f %.3f",
+                            data.rotationRate.x,
+                            data.rotationRate.y,
+                            data.rotationRate.z
+                        );
+                    }
+                }];
+            }
         };
 
         log_user("[JS Engine] Executing user script...\n");
