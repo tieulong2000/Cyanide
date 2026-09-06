@@ -658,6 +658,10 @@ bool repotweaks_run_isolated_js(NSString *tweakID, NSString *tweakName, NSString
             return repo_uint64_to_js(ptr);
         };
 
+        context[@"locsim_test"] = ^(){
+            log_user("Hello from JS\n");
+        };
+
         log_user("[RepoTweaks] Spawning sandbox for: %s\n", safeName.UTF8String);
         [context evaluateScript:jsCode];
         if (context.exception) ok = false;

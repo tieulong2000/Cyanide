@@ -596,7 +596,9 @@ bool quickloader_run_js_string(NSString *jsCode) {
             uint64_t ptr = r_nsstr_retained([str UTF8String]);
             return uint64_to_js(ptr);
         };
-
+        context[@"locsim_test"] = ^(){
+            log_user("Hello from JS\n");
+        };
         log_user("[JS Engine] Executing user script...\n");
         [context evaluateScript:jsCode];
         if (context.exception) {

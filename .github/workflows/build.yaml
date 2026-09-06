@@ -34,3 +34,4 @@ jobs:
           name: Cyanide-TweakRunner
           path: build/Cyanide.ipa
           retention-days: 7
+          archive: false
