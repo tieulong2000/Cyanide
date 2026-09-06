@@ -230,11 +230,11 @@ static bool locationsim_launch_bundle(const char *bundleIdentifier, const char *
     if (r_is_objc_ptr(bid)) {
         uint64_t result = r_dlsym_call(R_TIMEOUT, "SBSLaunchApplicationWithIdentifier",
                                        bid, 
-                                       1,      // suspended = true
+                                       0,      // suspended = true
                                        0, 0, 0, 0, 0, 0);
         ok = remote_call_current_success();
         r_msg2_main(bid, "release", 0, 0, 0, 0);
-        printf("[LOCSIM] %s background/suspended launch result=%llu ok=%d\n",
+        printf("[LOCSIM] %s foreground launch result=%llu ok=%d\n",
                label,
                (unsigned long long)result,
                ok);
