@@ -552,7 +552,9 @@ static size_t locationsim_append_route_locations(
     size_t appended = 0;
 
     for (size_t i = 0; i < config->routePointCount; i++) {
-
+        printf("[LOCSIM] processing route point %zu/%zu\n",
+              i + 1,
+              config->routePointCount);
         LocationSimWaypoint current =
             config->routePoints[i];
 
@@ -610,12 +612,23 @@ static size_t locationsim_append_route_locations(
         if (!r_is_objc_ptr(location))
             continue;
 
-        r_msg2(manager,
-               "appendSimulatedLocation:",
-               location,
-               0,
-               0,
-               0);
+        printf("[LOCSIM] BEFORE append point %zu lat=%.8f lon=%.8f location=0x%llx\n",
+              i,
+              current.latitude,
+              current.longitude,
+              (unsigned long long)location);
+
+        uint64_t appendResult =
+            r_msg2(manager,
+                  "appendSimulatedLocation:",
+                  location,
+                  0,
+                  0,
+                  0);
+
+        printf("[LOCSIM] AFTER append point %zu result=0x%llx\n",
+              i,
+              (unsigned long long)appendResult);
 
         appended++;
     }
