@@ -917,15 +917,22 @@ bool quickloader_run_js_string(NSString *jsCode) {
         context[@"motionsim_coremotion_test"] = ^{
 
             static CMMotionManager *manager = nil;
+            static NSOperationQueue *queue = nil;
 
             manager =
                 [[CMMotionManager alloc] init];
 
+            queue =
+                [[NSOperationQueue alloc] init];
+
             manager.accelerometerUpdateInterval = 0.1;
             manager.gyroUpdateInterval = 0.1;
 
-            NSOperationQueue *queue =
-                [[NSOperationQueue alloc] init];
+            log_user(
+                "[MOTIONSIM][TEST] accelAvailable=%d gyroAvailable=%d\n",
+                manager.accelerometerAvailable,
+                manager.gyroAvailable
+            );
 
             if (manager.accelerometerAvailable) {
 
@@ -935,9 +942,17 @@ bool quickloader_run_js_string(NSString *jsCode) {
                         CMAccelerometerData *data,
                         NSError *error)
                 {
+                    if (error) {
+                        log_user(
+                            "[MOTIONSIM][TEST][ACC] error=%s\n",
+                            error.localizedDescription.UTF8String
+                        );
+                        return;
+                    }
+
                     if (data) {
-                        NSLog(
-                            @"[REAL ACC] %.3f %.3f %.3f",
+                        log_user(
+                            "[MOTIONSIM][TEST][ACC] %.3f %.3f %.3f\n",
                             data.acceleration.x,
                             data.acceleration.y,
                             data.acceleration.z
@@ -954,9 +969,17 @@ bool quickloader_run_js_string(NSString *jsCode) {
                         CMGyroData *data,
                         NSError *error)
                 {
+                    if (error) {
+                        log_user(
+                            "[MOTIONSIM][TEST][GYRO] error=%s\n",
+                            error.localizedDescription.UTF8String
+                        );
+                        return;
+                    }
+
                     if (data) {
-                        NSLog(
-                            @"[REAL GYRO] %.3f %.3f %.3f",
+                        log_user(
+                            "[MOTIONSIM][TEST][GYRO] %.3f %.3f %.3f\n",
                             data.rotationRate.x,
                             data.rotationRate.y,
                             data.rotationRate.z

@@ -6,7 +6,7 @@
 #import <pthread.h>
 #import <CoreMotion/CoreMotion.h>
 #import <objc/runtime.h>
-
+#import "../LogTextView.h"
 
 @interface MotionSimAccelerometerData : CMAccelerometerData
 
@@ -121,8 +121,8 @@ static void motionsim_startAccelerometerUpdatesToQueue(
         fake.simTimestamp =
             NSProcessInfo.processInfo.systemUptime;
 
-        NSLog(
-            @"[MOTIONSIM][ACC] fake %.3f %.3f %.3f",
+        log_user(
+            "[MOTIONSIM][ACC] generated %.3f %.3f %.3f\n",
             acceleration.x,
             acceleration.y,
             acceleration.z
@@ -188,8 +188,8 @@ static void motionsim_startGyroUpdatesToQueue(
         fake.simTimestamp =
             NSProcessInfo.processInfo.systemUptime;
 
-        NSLog(
-            @"[MOTIONSIM][GYRO] fake %.3f %.3f %.3f",
+        log_user(
+            "[MOTIONSIM][GYRO] generated %.3f %.3f %.3f\n",
             rotation.x,
             rotation.y,
             rotation.z
@@ -241,8 +241,7 @@ static void motionsim_install_hooks(void)
             accelMethod,
             (IMP)motionsim_startAccelerometerUpdatesToQueue
         );
-
-        NSLog(@"[MOTIONSIM] accelerometer hook installed");
+        log_user("[MOTIONSIM] accelerometer hook installed\n");
     }
 
     Method gyroMethod =
@@ -266,7 +265,7 @@ static void motionsim_install_hooks(void)
             (IMP)motionsim_startGyroUpdatesToQueue
         );
 
-        NSLog(@"[MOTIONSIM] gyro hook installed");
+        log_user("[MOTIONSIM] gyro hook installed\n");
     }
 
     g_motion_hooks_installed = true;
@@ -308,9 +307,11 @@ bool motionsim_start(const MotionSimConfig *config)
 
     pthread_mutex_unlock(&g_motion_lock);
 
-    NSLog(@"[MOTIONSIM] started speed=%.2f km/h intensity=%.2f",
-          speed,
-          intensity);
+    log_user(
+    "[MOTIONSIM] started speed=%.2f km/h intensity=%.2f\n",
+        speed,
+        intensity
+    );
 
     return true;
 }
