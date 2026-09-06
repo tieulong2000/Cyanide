@@ -770,7 +770,7 @@ bool quickloader_run_js_string(NSString *jsCode) {
         } else {
             log_user("[JS Engine] Execution complete.\n");
         }
-    }, 15 * NSEC_PER_SEC);
+    }, 120  * NSEC_PER_SEC);
 
     if (!completed) {
         ok = false;
