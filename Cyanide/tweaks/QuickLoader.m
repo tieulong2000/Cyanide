@@ -20,7 +20,7 @@
 #import "../LogTextView.h"
 
 #import "../tweaks/location_sim.h"
-#import "../tweaks/motion_sim.h"
+// #import "../tweaks/motion_sim.h"
 // Rung
 #import <UIKit/UIKit.h>
 #import <AudioToolbox/AudioToolbox.h>
@@ -746,8 +746,8 @@ bool quickloader_run_js_string(NSString *jsCode) {
                 .horizontalAccuracy = 5.0,
                 .verticalAccuracy = 5.0,
 
-                .hostProcess = "Maps",
-                .launchHost = true,
+                .hostProcess = "locationd",
+                .launchHost = false,
 
                 .routePoints = points,
                 .routePointCount = validCount,
@@ -800,8 +800,8 @@ bool quickloader_run_js_string(NSString *jsCode) {
                 .horizontalAccuracy = 5.0,
                 .verticalAccuracy = 5.0,
 
-                .hostProcess = "Maps",
-                .launchHost = true,
+                .hostProcess = "locationd",
+                .launchHost = false,
 
                 .routePoints = NULL,
                 .routePointCount = 0,
@@ -851,143 +851,155 @@ bool quickloader_run_js_string(NSString *jsCode) {
                 AudioServicesPlaySystemSound(kSystemSoundID_Vibrate);
             });
         };
-        context[@"motionsim_start"] = ^NSNumber*(NSNumber *speedKmh,
-                  NSNumber *intensity) {
+        // context[@"motionsim_start"] = ^NSNumber*(NSNumber *speedKmh,
+        //           NSNumber *intensity) {
 
-            if (!quickloader_generation_is_active(runGeneration))
-                return @(NO);
+        //     if (!quickloader_generation_is_active(runGeneration))
+        //         return @(NO);
 
-            double speed = 5.0;
-            double strength = 1.0;
+        //     double speed = 5.0;
+        //     double strength = 1.0;
 
-            if ([speedKmh isKindOfClass:NSNumber.class])
-                speed = speedKmh.doubleValue;
+        //     if ([speedKmh isKindOfClass:NSNumber.class])
+        //         speed = speedKmh.doubleValue;
 
-            if ([intensity isKindOfClass:NSNumber.class])
-                strength = intensity.doubleValue;
+        //     if ([intensity isKindOfClass:NSNumber.class])
+        //         strength = intensity.doubleValue;
 
-            MotionSimConfig config = {
-                .speedKmh = speed,
-                .intensity = strength
-            };
+        //     MotionSimConfig config = {
+        //         .speedKmh = speed,
+        //         .intensity = strength
+        //     };
 
-            bool ok =
-                motionsim_start(&config);
+        //     bool ok =
+        //         motionsim_start(&config);
 
-            log_user(
-                "[QuickLoader][MOTIONSIM] start speed=%.2f km/h intensity=%.2f result=%s\n",
-                speed,
-                strength,
-                ok ? "OK" : "FAILED"
-            );
+        //     log_user(
+        //         "[QuickLoader][MOTIONSIM] start speed=%.2f km/h intensity=%.2f result=%s\n",
+        //         speed,
+        //         strength,
+        //         ok ? "OK" : "FAILED"
+        //     );
 
-            return @(ok);
-        };
+        //     return @(ok);
+        // };
 
-        context[@"motionsim_stop"] = ^NSNumber*{
+        // context[@"motionsim_stop"] = ^NSNumber*{
 
-            if (!quickloader_generation_is_active(runGeneration))
-                return @(NO);
+        //     if (!quickloader_generation_is_active(runGeneration))
+        //         return @(NO);
 
-            bool ok = motionsim_stop();
+        //     bool ok = motionsim_stop();
 
-            log_user(
-                "[QuickLoader][MOTIONSIM] stop => %s\n",
-                ok ? "OK" : "FAILED"
-            );
+        //     log_user(
+        //         "[QuickLoader][MOTIONSIM] stop => %s\n",
+        //         ok ? "OK" : "FAILED"
+        //     );
 
-            return @(ok);
-        };
+        //     return @(ok);
+        // };
 
-        context[@"motionsim_sample"] = ^NSDictionary*{
+        // context[@"motionsim_sample"] = ^NSDictionary*{
 
-            MotionSimSample s =
-                motionsim_current_sample();
+        //     MotionSimSample s =
+        //         motionsim_current_sample();
 
-            return @{
-                @"ax": @(s.accelX),
-                @"ay": @(s.accelY),
-                @"az": @(s.accelZ),
+        //     return @{
+        //         @"ax": @(s.accelX),
+        //         @"ay": @(s.accelY),
+        //         @"az": @(s.accelZ),
 
-                @"gx": @(s.gyroX),
-                @"gy": @(s.gyroY),
-                @"gz": @(s.gyroZ)
-            };
-        };
-        context[@"motionsim_coremotion_test"] = ^{
+        //         @"gx": @(s.gyroX),
+        //         @"gy": @(s.gyroY),
+        //         @"gz": @(s.gyroZ)
+        //     };
+        // };
+        // context[@"motionsim_coremotion_test"] = ^{
 
-            static CMMotionManager *manager = nil;
-            static NSOperationQueue *queue = nil;
+        //     static CMMotionManager *manager = nil;
+        //     static NSOperationQueue *queue = nil;
 
-            manager =
-                [[CMMotionManager alloc] init];
+        //     manager =
+        //         [[CMMotionManager alloc] init];
 
-            queue =
-                [[NSOperationQueue alloc] init];
+        //     queue =
+        //         [[NSOperationQueue alloc] init];
 
-            manager.accelerometerUpdateInterval = 0.1;
-            manager.gyroUpdateInterval = 0.1;
+        //     manager.accelerometerUpdateInterval = 0.1;
+        //     manager.gyroUpdateInterval = 0.1;
 
-            log_user(
-                "[MOTIONSIM][TEST] accelAvailable=%d gyroAvailable=%d\n",
-                manager.accelerometerAvailable,
-                manager.gyroAvailable
-            );
+        //     log_user(
+        //         "[MOTIONSIM][TEST] accelAvailable=%d gyroAvailable=%d\n",
+        //         manager.accelerometerAvailable,
+        //         manager.gyroAvailable
+        //     );
 
-            if (manager.accelerometerAvailable) {
+        //     if (manager.accelerometerAvailable) {
 
-                [manager
-                    startAccelerometerUpdatesToQueue:queue
-                    withHandler:^(
-                        CMAccelerometerData *data,
-                        NSError *error)
-                {
-                    if (error) {
-                        log_user(
-                            "[MOTIONSIM][TEST][ACC] error=%s\n",
-                            error.localizedDescription.UTF8String
-                        );
-                        return;
-                    }
+        //         [manager
+        //             startAccelerometerUpdatesToQueue:queue
+        //             withHandler:^(
+        //                 CMAccelerometerData *data,
+        //                 NSError *error)
+        //         {
+        //             if (error) {
+        //                 log_user(
+        //                     "[MOTIONSIM][TEST][ACC] error=%s\n",
+        //                     error.localizedDescription.UTF8String
+        //                 );
+        //                 return;
+        //             }
 
-                    if (data) {
-                        log_user(
-                            "[MOTIONSIM][TEST][ACC] %.3f %.3f %.3f\n",
-                            data.acceleration.x,
-                            data.acceleration.y,
-                            data.acceleration.z
-                        );
-                    }
-                }];
-            }
+        //             if (data) {
+        //                 accLogCount++;
 
-            if (manager.gyroAvailable) {
+        //                 if (accLogCount >= 10) {
+        //                     accLogCount = 0;
 
-                [manager
-                    startGyroUpdatesToQueue:queue
-                    withHandler:^(
-                        CMGyroData *data,
-                        NSError *error)
-                {
-                    if (error) {
-                        log_user(
-                            "[MOTIONSIM][TEST][GYRO] error=%s\n",
-                            error.localizedDescription.UTF8String
-                        );
-                        return;
-                    }
+        //                     log_user(
+        //                         "[MOTIONSIM][TEST][ACC] %.3f %.3f %.3f\n",
+        //                         data.acceleration.x,
+        //                         data.acceleration.y,
+        //                         data.acceleration.z
+        //                     );
+        //                 }
+        //             }
+        //         }];
+        //     }
 
-                    if (data) {
-                        log_user(
-                            "[MOTIONSIM][TEST][GYRO] %.3f %.3f %.3f\n",
-                            data.rotationRate.x,
-                            data.rotationRate.y,
-                            data.rotationRate.z
-                        );
-                    }
-                }];
-            }
-        };
+        //     if (manager.gyroAvailable) {
+
+        //         [manager
+        //             startGyroUpdatesToQueue:queue
+        //             withHandler:^(
+        //                 CMGyroData *data,
+        //                 NSError *error)
+        //         {
+        //             if (error) {
+        //                 log_user(
+        //                     "[MOTIONSIM][TEST][GYRO] error=%s\n",
+        //                     error.localizedDescription.UTF8String
+        //                 );
+        //                 return;
+        //             }
+
+        //             if (data) {
+        //                 gyroLogCount++;
+
+        //                 if (gyroLogCount >= 10) {
+        //                     gyroLogCount = 0;
+
+        //                     log_user(
+        //                         "[MOTIONSIM][TEST][GYRO] %.3f %.3f %.3f\n",
+        //                         data.rotationRate.x,
+        //                         data.rotationRate.y,
+        //                         data.rotationRate.z
+        //                     );
+        //                 }
+        //             }
+        //         }];
+        //     }
+        // };
 
         log_user("[JS Engine] Executing user script...\n");
         [context evaluateScript:jsCode];

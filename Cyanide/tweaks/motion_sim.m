@@ -60,6 +60,10 @@ static double g_motion_start_time = 0.0;
 
 static double g_motion_speed_kmh = 5.0;
 static double g_motion_intensity = 1.0;
+
+static int accLogCount = 0;
+static int gyroLogCount = 0;
+
 // static CMAccelerometerData *(*orig_accelerometerData)(
 //     id self,
 //     SEL _cmd
