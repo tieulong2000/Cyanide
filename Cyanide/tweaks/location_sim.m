@@ -2,7 +2,7 @@
 //  location_sim.m
 //  Cyanide
 //
-
+#include <stddef.h>
 #import "location_sim.h"
 #import "remote_objc.h"
 #import "../TaskRop/RemoteCall.h"
@@ -564,9 +564,28 @@ static bool locationsim_apply_to_host(const LocationSimConfig *config,
         locationsim_configure_route_manager(manager);
 
         double radiusMeters = 0.0;
-        size_t routePoints = locationsim_append_loop_locations(manager,
-                                                               config,
-                                                               &radiusMeters);
+        // size_t routePoints = locationsim_append_loop_locations(manager,
+        //                                                        config,
+        //                                                        &radiusMeters);
+        size_t routePoints;
+
+        if (config->routePoints &&
+            config->routePointCount > 1) {
+
+            routePoints =
+                locationsim_append_route_locations(
+                    manager,
+                    config);
+
+        } else {
+
+            routePoints =
+                locationsim_append_loop_locations(
+                    manager,
+                    config,
+                    &radiusMeters);
+
+        }
         if (routePoints > 0) {
             r_msg2(manager, "flush", 0, 0, 0, 0);
             r_msg2(manager, "startLocationSimulation", 0, 0, 0, 0);
@@ -719,4 +738,95 @@ bool locationsim_stop_strict_hosts(const char *hostProcess, bool launchHost)
 
     printf("[LOCSIM] strict stop sweep %s\n", anyOK ? "reached at least one host" : "failed");
     return anyOK;
+}
+
+
+static size_t locationsim_append_route_locations(
+    uint64_t manager,
+    const LocationSimConfig *config)
+{
+    if (!r_is_objc_ptr(manager))
+        return 0;
+
+    if (!config)
+        return 0;
+
+    if (!config->routePoints)
+        return 0;
+
+    if (config->routePointCount < 2)
+        return 0;
+
+    size_t appended = 0;
+
+    for (size_t i = 0; i < config->routePointCount; i++) {
+
+        LocationSimWaypoint current =
+            config->routePoints[i];
+
+        LocationSimWaypoint next =
+            (i + 1 < config->routePointCount)
+            ? config->routePoints[i + 1]
+            : current;
+
+        double avgLat =
+            (current.latitude + next.latitude) * 0.5;
+
+        double cosLat =
+            cos(avgLat * kLocationSimPi / 180.0);
+
+        if (fabs(cosLat) < 0.000001)
+            cosLat = 0.000001;
+
+        double north =
+            (next.latitude - current.latitude) *
+            kLocationSimMetersPerDegreeLatitude;
+
+        double east =
+            (next.longitude - current.longitude) *
+            kLocationSimMetersPerDegreeLatitude *
+            cosLat;
+
+        double distance =
+            sqrt(north * north + east * east);
+
+        double course =
+            atan2(east, north) *
+            180.0 / kLocationSimPi;
+
+        if (course < 0)
+            course += 360.0;
+
+        double speed =
+            locationsim_clamp(
+                distance /
+                kLocationSimRouteIntervalSeconds,
+                0.5,
+                30.0);
+
+        uint64_t location =
+            locationsim_build_location(
+                current.latitude,
+                current.longitude,
+                config->altitude,
+                config->horizontalAccuracy,
+                config->verticalAccuracy,
+                course,
+                speed,
+                appended == 0);
+
+        if (!r_is_objc_ptr(location))
+            continue;
+
+        r_msg2(manager,
+               "appendSimulatedLocation:",
+               location,
+               0,
+               0,
+               0);
+
+        appended++;
+    }
+
+    return appended;
 }

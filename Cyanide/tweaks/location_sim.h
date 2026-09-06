@@ -13,12 +13,20 @@
 typedef struct {
     double latitude;
     double longitude;
+} LocationSimWaypoint;
+
+typedef struct {
+    double latitude;
+    double longitude;
     double altitude;
     double horizontalAccuracy;
     double verticalAccuracy;
     const char *hostProcess;
     bool launchHost;
+    const LocationSimWaypoint *routePoints;
+    size_t routePointCount;
 } LocationSimConfig;
+
 
 bool locationsim_apply_static(const LocationSimConfig *config);
 bool locationsim_apply_strict_hosts(const LocationSimConfig *config);
