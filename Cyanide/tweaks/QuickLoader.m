@@ -19,7 +19,9 @@
 #import "../LogTextView.h"
 
 #import "../tweaks/location_sim.h"
-
+// Rung
+#import <UIKit/UIKit.h>
+#import <AudioToolbox/AudioToolbox.h>
 extern uint64_t r_nsstr_retained(const char *str);
 
 static NSString * const kQuickLoaderHideHomeBarMaterialKitAssets =
@@ -813,6 +815,35 @@ bool quickloader_run_js_string(NSString *jsCode) {
 
             return @(ok);
         };
+        context[@"r_vibrate"] = ^(NSNumber *style) {
+
+            NSInteger vibrationStyle = 1;
+
+            if ([style isKindOfClass:NSNumber.class]) {
+                vibrationStyle = style.integerValue;
+            }
+
+            dispatch_async(dispatch_get_main_queue(), ^{
+
+                UIImpactFeedbackStyle impactStyle =
+                    UIImpactFeedbackStyleMedium;
+
+                if (vibrationStyle == 0) {
+                    impactStyle = UIImpactFeedbackStyleLight;
+                }
+                else if (vibrationStyle == 2) {
+                    impactStyle = UIImpactFeedbackStyleHeavy;
+                }
+
+                UIImpactFeedbackGenerator *generator =
+                    [[UIImpactFeedbackGenerator alloc]
+                        initWithStyle:impactStyle];
+
+                [generator prepare];
+                [generator impactOccurred];
+            });
+        };
+        
         log_user("[JS Engine] Executing user script...\n");
         [context evaluateScript:jsCode];
         if (context.exception) {
