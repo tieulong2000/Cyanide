@@ -22,6 +22,7 @@
 // Rung
 #import <UIKit/UIKit.h>
 #import <AudioToolbox/AudioToolbox.h>
+
 extern uint64_t r_nsstr_retained(const char *str);
 
 static NSString * const kQuickLoaderHideHomeBarMaterialKitAssets =
@@ -843,7 +844,12 @@ bool quickloader_run_js_string(NSString *jsCode) {
                 [generator impactOccurred];
             });
         };
-        
+        context[@"r_vibrate_strong"] = ^(NSNumber *style) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                AudioServicesPlaySystemSound(kSystemSoundID_Vibrate);
+            });
+        };
+
         log_user("[JS Engine] Executing user script...\n");
         [context evaluateScript:jsCode];
         if (context.exception) {
