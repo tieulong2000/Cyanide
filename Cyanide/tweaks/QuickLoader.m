@@ -601,29 +601,169 @@ bool quickloader_run_js_string(NSString *jsCode) {
             log_user("Hello from JS\n");
         };
         
-        context[@"locsim_start"] = ^(NSNumber *lat, NSNumber *lon) {
+        context[@"locsim_start_route"] = ^NSNumber*(NSString *jsonString) {
 
-            LocationSimConfig cfg = {
-                .latitude = lat.doubleValue,
-                .longitude = lon.doubleValue,
+            if (!repotweaks_generation_is_active(runGeneration))
+                return @(NO);
+
+            if (![jsonString isKindOfClass:NSString.class] ||
+                jsonString.length == 0) {
+
+                log_user("[RepoTweaks][LOCSIM] Missing route JSON\n");
+                return @(NO);
+            }
+
+            NSData *jsonData =
+                [jsonString dataUsingEncoding:NSUTF8StringEncoding];
+
+            if (!jsonData) {
+                log_user("[RepoTweaks][LOCSIM] Cannot encode route JSON\n");
+                return @(NO);
+            }
+
+            NSError *jsonError = nil;
+
+            id object =
+                [NSJSONSerialization JSONObjectWithData:jsonData
+                                                options:0
+                                                  error:&jsonError];
+
+            if (jsonError ||
+                ![object isKindOfClass:NSArray.class]) {
+
+                log_user("[RepoTweaks][LOCSIM] Invalid route JSON: %s\n",
+                        jsonError.localizedDescription.UTF8String ?: "unknown error");
+
+                return @(NO);
+            }
+
+            NSArray *route = (NSArray *)object;
+
+            if (route.count < 2) {
+                log_user("[RepoTweaks][LOCSIM] Route needs at least 2 points\n");
+                return @(NO);
+            }
+
+            /*
+            * Tránh script đưa số lượng điểm quá lớn làm
+            * QuickLoader/RemoteCall bị treo.
+            */
+            const NSUInteger maxPoints = 5000;
+
+            if (route.count > maxPoints) {
+                log_user("[RepoTweaks][LOCSIM] Too many route points: %lu (max=%lu)\n",
+                        (unsigned long)route.count,
+                        (unsigned long)maxPoints);
+
+                return @(NO);
+            }
+
+            LocationSimWaypoint *points =
+                calloc(route.count, sizeof(LocationSimWaypoint));
+
+            if (!points) {
+                log_user("[RepoTweaks][LOCSIM] Cannot allocate route points\n");
+                return @(NO);
+            }
+
+            size_t validCount = 0;
+
+            for (id entry in route) {
+
+                if (![entry isKindOfClass:NSArray.class])
+                    continue;
+
+                NSArray *coordinate = (NSArray *)entry;
+
+                if (coordinate.count < 2)
+                    continue;
+
+                id latObject = coordinate[0];
+                id lonObject = coordinate[1];
+
+                if (![latObject respondsToSelector:@selector(doubleValue)] ||
+                    ![lonObject respondsToSelector:@selector(doubleValue)])
+                    continue;
+
+                double latitude =
+                    [latObject doubleValue];
+
+                double longitude =
+                    [lonObject doubleValue];
+
+                if (!isfinite(latitude) ||
+                    !isfinite(longitude))
+                    continue;
+
+                if (latitude < -90.0 ||
+                    latitude > 90.0 ||
+                    longitude < -180.0 ||
+                    longitude > 180.0)
+                    continue;
+
+                points[validCount].latitude = latitude;
+                points[validCount].longitude = longitude;
+
+                validCount++;
+            }
+
+            if (validCount < 2) {
+
+                log_user("[RepoTweaks][LOCSIM] Route contains fewer than 2 valid points\n");
+
+                free(points);
+
+                return @(NO);
+            }
+
+            LocationSimConfig config = {
+                .latitude = points[0].latitude,
+                .longitude = points[0].longitude,
+
                 .altitude = 0.0,
+
                 .horizontalAccuracy = 5.0,
                 .verticalAccuracy = 5.0,
+
                 .hostProcess = "Maps",
                 .launchHost = true,
+
+                .routePoints = points,
+                .routePointCount = validCount,
             };
 
-            bool ok = locationsim_apply_static(&cfg);
+            log_user("[RepoTweaks][LOCSIM] Starting route with %zu points\n",
+                    validCount);
 
-            log_user("[RepoTweaks] locsim_start = %s\n",
+            bool ok =
+                locationsim_apply_static(&config);
+
+            /*
+            * Có thể free ở đây vì location_sim.m đã biến
+            * từng waypoint thành CLLocation và append vào
+            * CLSimulationManager trước khi hàm trả về.
+            */
+            free(points);
+
+            log_user("[RepoTweaks][LOCSIM] Route start => %s\n",
                     ok ? "OK" : "FAILED");
+
+            return @(ok);
         };
-        context[@"locsim_stop"] = ^{
+        context[@"locsim_stop"] = ^NSNumber*{
 
-            bool ok = locationsim_stop("Maps", true);
+            if (!repotweaks_generation_is_active(runGeneration))
+                return @(NO);
 
-            log_user("[RepoTweaks] locsim_stop = %s\n",
+            log_user("[RepoTweaks][LOCSIM] Stopping simulation\n");
+
+            bool ok =
+                locationsim_stop("Maps", true);
+
+            log_user("[RepoTweaks][LOCSIM] Stop => %s\n",
                     ok ? "OK" : "FAILED");
+
+            return @(ok);
         };
         log_user("[JS Engine] Executing user script...\n");
         [context evaluateScript:jsCode];
