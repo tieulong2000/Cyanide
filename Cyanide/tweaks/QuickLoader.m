@@ -738,10 +738,10 @@ bool quickloader_run_js_string(NSString *jsCode) {
             __block bool ok = false;
 
             if ([NSThread isMainThread]) {
-                ok = locationsim_apply_static(&config);
+                ok = locationsim_apply_strict_hosts(&config);
             } else {
                 dispatch_sync(dispatch_get_main_queue(), ^{
-                    ok = locationsim_apply_static(&config);
+                    ok = locationsim_apply_strict_hosts(&config);
                 });
             }
 
