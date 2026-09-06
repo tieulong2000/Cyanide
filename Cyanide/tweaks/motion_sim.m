@@ -7,6 +7,52 @@
 #import <CoreMotion/CoreMotion.h>
 #import <objc/runtime.h>
 
+
+@interface MotionSimAccelerometerData : CMAccelerometerData
+
+@property (nonatomic, assign) CMAcceleration simAcceleration;
+@property (nonatomic, assign) NSTimeInterval simTimestamp;
+
+@end
+
+
+@implementation MotionSimAccelerometerData
+
+- (CMAcceleration)acceleration
+{
+    return self.simAcceleration;
+}
+
+- (NSTimeInterval)timestamp
+{
+    return self.simTimestamp;
+}
+
+@end
+
+@interface MotionSimGyroData : CMGyroData
+
+@property (nonatomic, assign) CMRotationRate simRotationRate;
+@property (nonatomic, assign) NSTimeInterval simTimestamp;
+
+@end
+
+
+@implementation MotionSimGyroData
+
+- (CMRotationRate)rotationRate
+{
+    return self.simRotationRate;
+}
+
+- (NSTimeInterval)timestamp
+{
+    return self.simTimestamp;
+}
+
+@end
+
+
 static pthread_mutex_t g_motion_lock = PTHREAD_MUTEX_INITIALIZER;
 
 static bool g_motion_active = false;
@@ -14,15 +60,15 @@ static double g_motion_start_time = 0.0;
 
 static double g_motion_speed_kmh = 5.0;
 static double g_motion_intensity = 1.0;
-static CMAccelerometerData *(*orig_accelerometerData)(
-    id self,
-    SEL _cmd
-);
+// static CMAccelerometerData *(*orig_accelerometerData)(
+//     id self,
+//     SEL _cmd
+// );
 
-static CMGyroData *(*orig_gyroData)(
-    id self,
-    SEL _cmd
-);
+// static CMGyroData *(*orig_gyroData)(
+//     id self,
+//     SEL _cmd
+// );
 
 static void (*orig_startAccelerometerUpdatesToQueue)(
     id self,
@@ -58,24 +104,31 @@ static void motionsim_startAccelerometerUpdatesToQueue(
         MotionSimSample sample =
             motionsim_current_sample();
 
+        MotionSimAccelerometerData *fake =
+            [[MotionSimAccelerometerData alloc] init];
+
+        CMAcceleration acceleration;
+
+        acceleration.x = sample.accelX;
+        acceleration.y = sample.accelY;
+        acceleration.z = sample.accelZ;
+
+        fake.simAcceleration = acceleration;
+
         /*
-         * Tạm thời log để xác nhận hook đã bắt callback.
-         */
+        * CoreMotion timestamp là thời gian tính từ lúc boot.
+        */
+        fake.simTimestamp =
+            NSProcessInfo.processInfo.systemUptime;
+
         NSLog(
-            @"[MOTIONSIM][ACC] %.3f %.3f %.3f",
-            sample.accelX,
-            sample.accelY,
-            sample.accelZ
+            @"[MOTIONSIM][ACC] fake %.3f %.3f %.3f",
+            acceleration.x,
+            acceleration.y,
+            acceleration.z
         );
 
-        /*
-         * Chưa thể trực tiếp sửa data.acceleration
-         * vì property này readonly.
-         *
-         * Bước tiếp theo sẽ dùng proxy object.
-         */
-
-        handler(data, error);
+        handler(fake, nil);
     };
 
     orig_startAccelerometerUpdatesToQueue(
@@ -121,14 +174,28 @@ static void motionsim_startGyroUpdatesToQueue(
         MotionSimSample sample =
             motionsim_current_sample();
 
+        MotionSimGyroData *fake =
+            [[MotionSimGyroData alloc] init];
+
+        CMRotationRate rotation;
+
+        rotation.x = sample.gyroX;
+        rotation.y = sample.gyroY;
+        rotation.z = sample.gyroZ;
+
+        fake.simRotationRate = rotation;
+
+        fake.simTimestamp =
+            NSProcessInfo.processInfo.systemUptime;
+
         NSLog(
-            @"[MOTIONSIM][GYRO] %.3f %.3f %.3f",
-            sample.gyroX,
-            sample.gyroY,
-            sample.gyroZ
+            @"[MOTIONSIM][GYRO] fake %.3f %.3f %.3f",
+            rotation.x,
+            rotation.y,
+            rotation.z
         );
 
-        handler(data, error);
+        handler(fake, nil);
     };
 
     orig_startGyroUpdatesToQueue(
@@ -346,3 +413,6 @@ MotionSimSample motionsim_current_sample(void)
 
     return sample;
 }
+
+
+

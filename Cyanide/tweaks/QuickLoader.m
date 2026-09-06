@@ -16,6 +16,7 @@
 #import <pthread.h>
 #import <math.h>
 #import <Foundation/Foundation.h>
+#import <CoreMotion/CoreMotion.h>
 #import "../LogTextView.h"
 
 #import "../tweaks/location_sim.h"
