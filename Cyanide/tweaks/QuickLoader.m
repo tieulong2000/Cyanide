@@ -763,6 +763,37 @@ bool quickloader_run_js_string(NSString *jsCode) {
 
             return @(ok);
         };
+        context[@"locsim_test_static"] = ^NSNumber*(NSNumber *lat, NSNumber *lon) {
+
+            if (!quickloader_generation_is_active(runGeneration))
+                return @(NO);
+
+            LocationSimConfig config = {
+                .latitude = lat.doubleValue,
+                .longitude = lon.doubleValue,
+
+                .altitude = 0.0,
+                .horizontalAccuracy = 5.0,
+                .verticalAccuracy = 5.0,
+
+                .hostProcess = "Maps",
+                .launchHost = true,
+
+                .routePoints = NULL,
+                .routePointCount = 0,
+            };
+
+            log_user("[QuickLoader][LOCSIM] static test %.8f %.8f\n",
+                    config.latitude,
+                    config.longitude);
+
+            bool ok = locationsim_apply_static(&config);
+
+            log_user("[QuickLoader][LOCSIM] static result=%s\n",
+                    ok ? "OK" : "FAILED");
+
+            return @(ok);
+        };
         log_user("[JS Engine] Executing user script...\n");
         [context evaluateScript:jsCode];
         if (context.exception) {
