@@ -602,9 +602,6 @@ bool quickloader_run_js_string(NSString *jsCode) {
             uint64_t ptr = r_nsstr_retained([str UTF8String]);
             return uint64_to_js(ptr);
         };
-        context[@"locsim_test"] = ^(){
-            log_user("Hello from JS\n");
-        };
         
         context[@"locsim_start_route"] = ^NSNumber*(NSString *jsonString,  NSNumber *speedKmh) {
 
@@ -746,8 +743,8 @@ bool quickloader_run_js_string(NSString *jsCode) {
                 .horizontalAccuracy = 5.0,
                 .verticalAccuracy = 5.0,
 
-                .hostProcess = "locationd",
-                .launchHost = false,
+                .hostProcess = "Maps",
+                .launchHost = true,
 
                 .routePoints = points,
                 .routePointCount = validCount,
@@ -787,37 +784,7 @@ bool quickloader_run_js_string(NSString *jsCode) {
 
             return @(ok);
         };
-        context[@"locsim_test_static"] = ^NSNumber*(NSNumber *lat, NSNumber *lon) {
-
-            if (!quickloader_generation_is_active(runGeneration))
-                return @(NO);
-
-            LocationSimConfig config = {
-                .latitude = lat.doubleValue,
-                .longitude = lon.doubleValue,
-
-                .altitude = 0.0,
-                .horizontalAccuracy = 5.0,
-                .verticalAccuracy = 5.0,
-
-                .hostProcess = "locationd",
-                .launchHost = false,
-
-                .routePoints = NULL,
-                .routePointCount = 0,
-            };
-
-            log_user("[QuickLoader][LOCSIM] static test %.8f %.8f\n",
-                    config.latitude,
-                    config.longitude);
-
-            bool ok = locationsim_apply_static(&config);
-
-            log_user("[QuickLoader][LOCSIM] static result=%s\n",
-                    ok ? "OK" : "FAILED");
-
-            return @(ok);
-        };
+        
         context[@"r_vibrate"] = ^(NSNumber *style) {
 
             NSInteger vibrationStyle = 1;
