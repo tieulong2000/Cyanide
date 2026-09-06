@@ -268,8 +268,7 @@ static uint64_t locationsim_build_source_information(void)
         printf("[LOCSIM] CLLocationSourceInformation source-state initializer unavailable\n");
         return 0;
     }
-
-    uint64_t info = r_msg2(allocated, selector, 0, 0, 0, 0);
+    uint64_t info = r_msg2(allocated, selector, 1, 0, 0, 0);
     if (!r_is_objc_ptr(info)) {
         printf("[LOCSIM] CLLocationSourceInformation init failed\n");
         return 0;
@@ -692,7 +691,9 @@ static bool locationsim_apply_to_host(const LocationSimConfig *config,
         }
         if (routePoints > 0) {
             r_msg2(manager, "flush", 0, 0, 0, 0);
+            printf("[LOCSIM] ABOUT TO START simulation with %zu points\n", routePoints);
             r_msg2(manager, "startLocationSimulation", 0, 0, 0, 0);
+            printf("[LOCSIM] START command sent\n");
             locationsim_notify_timezone();
             ok = true;
             printf("[LOCSIM] started loop %.8f, %.8f alt=%.1f hAcc=%.1f host=%s points=%zu radius=%.1fm\n",
