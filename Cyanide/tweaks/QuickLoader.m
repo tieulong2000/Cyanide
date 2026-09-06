@@ -735,15 +735,7 @@ bool quickloader_run_js_string(NSString *jsCode) {
             log_user("[RepoTweaks][LOCSIM] Starting route with %zu points\n",
                     validCount);
 
-            __block bool ok = false;
-
-            if ([NSThread isMainThread]) {
-                ok = locationsim_apply_strict_hosts(&config);
-            } else {
-                dispatch_sync(dispatch_get_main_queue(), ^{
-                    ok = locationsim_apply_strict_hosts(&config);
-                });
-            }
+            bool ok = locationsim_apply_static(&config);
 
             /*
             * Có thể free ở đây vì location_sim.m đã biến
@@ -762,23 +754,11 @@ bool quickloader_run_js_string(NSString *jsCode) {
             if (!quickloader_generation_is_active(runGeneration))
                 return @(NO);
 
-            log_user("[RepoTweaks][LOCSIM] Stopping simulation\n");
+            log_user("[QuickLoader][LOCSIM] Stopping simulation\n");
 
-            __block bool ok = false;
+            bool ok = locationsim_stop("Maps", true);
 
-            if ([NSThread isMainThread]) {
-
-                ok = locationsim_stop("Maps", true);
-
-            } else {
-
-                dispatch_sync(dispatch_get_main_queue(), ^{
-                    ok = locationsim_stop("Maps", true);
-                });
-
-            }
-
-            log_user("[RepoTweaks][LOCSIM] Stop => %s\n",
+            log_user("[QuickLoader][LOCSIM] Stop => %s\n",
                     ok ? "OK" : "FAILED");
 
             return @(ok);

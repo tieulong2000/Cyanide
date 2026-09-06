@@ -268,7 +268,7 @@ static uint64_t locationsim_build_source_information(void)
         printf("[LOCSIM] CLLocationSourceInformation source-state initializer unavailable\n");
         return 0;
     }
-    uint64_t info = r_msg2(allocated, selector, 1, 0, 0, 0);
+    uint64_t info = r_msg2(allocated, selector, 0, 0, 0, 0);
     if (!r_is_objc_ptr(info)) {
         printf("[LOCSIM] CLLocationSourceInformation init failed\n");
         return 0;
@@ -715,30 +715,14 @@ static bool locationsim_apply_to_host(const LocationSimConfig *config,
 
 bool locationsim_apply_static(const LocationSimConfig *config)
 {
-    // if (!config) return false;
-    // return locationsim_apply_to_host(config,
-    //                                  locationsim_host_or_default(config->hostProcess),
-    //                                  config->launchHost,
-    //                                  0);
-     if (!config) return false;
+    if (!config) return false;
 
-    LocationSimWaypoint route[] = {
-        {10.776889, 106.700806},
-        {10.777050, 106.701050},
-        {10.777250, 106.701400},
-        {10.777500, 106.701800},
-        {10.777900, 106.702200},
-    };
-
-    LocationSimConfig cfg = *config;
-
-    cfg.routePoints = route;
-    cfg.routePointCount = sizeof(route) / sizeof(route[0]);
-
-    return locationsim_apply_to_host(&cfg,
-                                     locationsim_host_or_default(cfg.hostProcess),
-                                     cfg.launchHost,
-                                     0);
+    return locationsim_apply_to_host(
+        config,
+        locationsim_host_or_default(config->hostProcess),
+        config->launchHost,
+        0
+    );
 }
 
 bool locationsim_apply_strict_hosts(const LocationSimConfig *config)
