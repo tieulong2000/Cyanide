@@ -25,6 +25,7 @@ typedef struct {
     bool launchHost;
     const LocationSimWaypoint *routePoints;
     size_t routePointCount;
+    double routeSpeed;
 } LocationSimConfig;
 
 

@@ -601,7 +601,7 @@ bool quickloader_run_js_string(NSString *jsCode) {
             log_user("Hello from JS\n");
         };
         
-        context[@"locsim_start_route"] = ^NSNumber*(NSString *jsonString) {
+        context[@"locsim_start_route"] = ^NSNumber*(NSString *jsonString,  NSNumber *speedKmh) {
 
             if (!quickloader_generation_is_active(runGeneration))
                 return @(NO);
@@ -715,6 +715,22 @@ bool quickloader_run_js_string(NSString *jsCode) {
 
                 return @(NO);
             }
+            double kmh = 5.0;
+
+            if ([speedKmh isKindOfClass:NSNumber.class]) {
+                kmh = speedKmh.doubleValue;
+            }
+
+            if (!isfinite(kmh) || kmh <= 0.0) {
+                kmh = 5.0;
+            }
+
+            /* Giới hạn ví dụ 1–120 km/h */
+            if (kmh < 1.0) kmh = 1.0;
+            if (kmh > 120.0) kmh = 120.0;
+
+            /* CoreLocation dùng m/s */
+            double routeSpeed = kmh / 3.6;
 
             LocationSimConfig config = {
                 .latitude = points[0].latitude,
@@ -730,10 +746,13 @@ bool quickloader_run_js_string(NSString *jsCode) {
 
                 .routePoints = points,
                 .routePointCount = validCount,
+                .routeSpeed = routeSpeed
             };
 
-            log_user("[RepoTweaks][LOCSIM] Starting route with %zu points\n",
-                    validCount);
+            log_user("[QuickLoader][LOCSIM] Starting route points=%zu speed=%.1f km/h (%.2f m/s)\n",
+                validCount,
+                kmh,
+                routeSpeed);
 
             bool ok = locationsim_apply_static(&config);
 

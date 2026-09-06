@@ -422,7 +422,8 @@ static double locationsim_clamp(double value, double minValue, double maxValue)
     return value;
 }
 
-static void locationsim_configure_route_manager(uint64_t manager)
+static void locationsim_configure_route_manager(uint64_t manager,
+    const LocationSimConfig *config)
 {
     if (!r_is_objc_ptr(manager)) return;
 
@@ -432,7 +433,7 @@ static void locationsim_configure_route_manager(uint64_t manager)
     r_msg2(manager, "setLocationRepeatBehavior:", 2, 0, 0, 0);
     locationsim_set_double_property(manager, "setLocationInterval:",
                                     kLocationSimRouteIntervalSeconds);
-    locationsim_set_double_property(manager, "setLocationSpeed:", 1.4);
+    locationsim_set_double_property(manager, "setLocationSpeed:", config->routeSpeed);
 
     uint64_t newDelivery = r_msg2(manager, "locationDeliveryBehavior", 0, 0, 0, 0);
     uint64_t newRepeat = r_msg2(manager, "locationRepeatBehavior", 0, 0, 0, 0);
@@ -664,7 +665,7 @@ static bool locationsim_apply_to_host(const LocationSimConfig *config,
     bool ok = false;
     if (r_is_objc_ptr(manager)) {
         locationsim_stop_manager(manager);
-        locationsim_configure_route_manager(manager);
+        locationsim_configure_route_manager(manager, config);
 
         double radiusMeters = 0.0;
         // size_t routePoints = locationsim_append_loop_locations(manager,
