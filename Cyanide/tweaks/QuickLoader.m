@@ -21,6 +21,7 @@
 
 #import "../tweaks/location_sim.h"
 // #import "../tweaks/motion_sim.h"
+#import "LocationKeeper.h"
 // Rung
 #import <UIKit/UIKit.h>
 #import <AudioToolbox/AudioToolbox.h>
@@ -780,6 +781,9 @@ bool quickloader_run_js_string(NSString *jsCode) {
 
                 return @(NO);
             }
+
+
+            
             double duraMinutes = 15.0;
 
             if ([durationMinutes isKindOfClass:NSNumber.class]) {
@@ -856,8 +860,8 @@ bool quickloader_run_js_string(NSString *jsCode) {
                 .horizontalAccuracy = 5.0,
                 .verticalAccuracy = 5.0,
 
-                .hostProcess = "Maps",
-                .launchHost = true,
+                .hostProcess = "Cyanide",
+                .launchHost = false,
 
                 .routePoints = points,
                 .routePointCount = validCount,
@@ -869,6 +873,19 @@ bool quickloader_run_js_string(NSString *jsCode) {
                 validCount,
                 kmh,
                 routeSpeed);
+
+            bool keeperOK =
+                locationkeeper_start();
+
+            log_user(
+                "[LOCSIM] LocationKeeper start => %s\n",
+                keeperOK ? "OK" : "FAILED"
+            );
+
+            if (!keeperOK) {
+                free(points);
+                return @(NO);
+            }
 
             // bool ok = locationsim_apply_static(&config);
             bool ok =
@@ -1192,6 +1209,14 @@ bool quickloader_run_js_string(NSString *jsCode) {
 
             bool ok =
                 locationsim_persistent_stop();
+
+            return @(ok);
+        };
+        context[@"locsim_keeper_start"] =
+        ^NSNumber* {
+
+            bool ok =
+                locationkeeper_start();
 
             return @(ok);
         };
