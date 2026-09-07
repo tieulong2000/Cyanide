@@ -29,7 +29,7 @@ typedef struct {
 static const int kLocationSimOptionalHostInitTimeoutMS = 15000;
 static const double kLocationSimPi = 3.14159265358979323846;
 static const double kLocationSimMetersPerDegreeLatitude = 111320.0;
-static const double kLocationSimRouteIntervalSeconds = 3.0;
+static const double kLocationSimRouteIntervalSeconds = 10.0;
 static const size_t kLocationSimRoutePointCount = 12;
 
 static NSInteger locationsim_ios_major_version(void)
@@ -552,88 +552,123 @@ static size_t locationsim_append_route_locations(
         return 0;
 
     size_t appended = 0;
+    size_t loopCount = config->routeLoopCount;
 
-    for (size_t i = 0; i < config->routePointCount; i++) {
-        printf("[LOCSIM] processing route point %zu/%zu\n",
-              i + 1,
-              config->routePointCount);
-        LocationSimWaypoint current =
-            config->routePoints[i];
+    if (loopCount < 1)
+        loopCount = 1;
 
-        LocationSimWaypoint next =
-            (i + 1 < config->routePointCount)
-            ? config->routePoints[i + 1]
-            : current;
+    for (size_t loop = 0; loop < loopCount; loop++) {
 
-        double avgLat =
-            (current.latitude + next.latitude) * 0.5;
+        printf(
+            "[LOCSIM] append route loop %zu/%zu\n",
+            loop + 1,
+            loopCount
+        );
 
-        double cosLat =
-            cos(avgLat * kLocationSimPi / 180.0);
+        for (size_t i = 0;
+            i < config->routePointCount;
+            i++) {
 
-        if (fabs(cosLat) < 0.000001)
-            cosLat = 0.000001;
+            LocationSimWaypoint current =
+                config->routePoints[i];
 
-        double north =
-            (next.latitude - current.latitude) *
-            kLocationSimMetersPerDegreeLatitude;
+            LocationSimWaypoint next;
 
-        double east =
-            (next.longitude - current.longitude) *
-            kLocationSimMetersPerDegreeLatitude *
-            cosLat;
+            if (i + 1 < config->routePointCount) {
 
-        double distance =
-            sqrt(north * north + east * east);
+                next =
+                    config->routePoints[i + 1];
 
-        double course =
-            atan2(east, north) *
-            180.0 / kLocationSimPi;
+            } else {
 
-        if (course < 0)
-            course += 360.0;
+                /*
+                * Điểm cuối của vòng hiện tại
+                * hướng về điểm đầu.
+                */
+                next =
+                    config->routePoints[0];
+            }
 
-        double speed =
-            locationsim_clamp(
-                distance /
-                kLocationSimRouteIntervalSeconds,
-                0.5,
-                30.0);
+            double avgLat =
+                (current.latitude +
+                next.latitude) * 0.5;
 
-        uint64_t location =
-            locationsim_build_location(
-                current.latitude,
-                current.longitude,
-                config->altitude,
-                config->horizontalAccuracy,
-                config->verticalAccuracy,
-                course,
-                speed,
-                appended == 0);
+            double cosLat =
+                cos(
+                    avgLat *
+                    kLocationSimPi /
+                    180.0
+                );
 
-        if (!r_is_objc_ptr(location))
-            continue;
+            if (fabs(cosLat) < 0.000001)
+                cosLat = 0.000001;
 
-        printf("[LOCSIM] BEFORE append point %zu lat=%.8f lon=%.8f location=0x%llx\n",
-              i,
-              current.latitude,
-              current.longitude,
-              (unsigned long long)location);
+            double north =
+                (next.latitude -
+                current.latitude) *
+                kLocationSimMetersPerDegreeLatitude;
 
-        uint64_t appendResult =
-            r_msg2(manager,
-                  "appendSimulatedLocation:",
-                  location,
-                  0,
-                  0,
-                  0);
+            double east =
+                (next.longitude -
+                current.longitude) *
+                kLocationSimMetersPerDegreeLatitude *
+                cosLat;
 
-        printf("[LOCSIM] AFTER append point %zu result=0x%llx\n",
-              i,
-              (unsigned long long)appendResult);
+            double distance =
+                sqrt(
+                    north * north +
+                    east * east
+                );
 
-        appended++;
+            double course =
+                atan2(east, north) *
+                180.0 /
+                kLocationSimPi;
+
+            if (course < 0)
+                course += 360.0;
+
+            double speed =
+                config->routeSpeed > 0
+                ? config->routeSpeed
+                : locationsim_clamp(
+                    distance /
+                    kLocationSimRouteIntervalSeconds,
+                    0.5,
+                    30.0
+                );
+
+            uint64_t location =
+                locationsim_build_location(
+                    current.latitude,
+                    current.longitude,
+                    config->altitude,
+                    config->horizontalAccuracy,
+                    config->verticalAccuracy,
+                    course,
+                    speed,
+                    appended == 0
+                );
+
+            if (!r_is_objc_ptr(location))
+                continue;
+
+            r_msg2(
+                manager,
+                "appendSimulatedLocation:",
+                location,
+                0, 0, 0
+            );
+
+            appended++;
+        }
     }
+
+    printf(
+        "[LOCSIM] total appended route points=%zu loops=%zu\n",
+        appended,
+        loopCount
+    );
 
     return appended;
 }
@@ -678,6 +713,7 @@ static bool locationsim_apply_to_host(const LocationSimConfig *config,
         if (config->routePoints &&
             config->routePointCount > 1) {
 
+            printf("[LOCSIM] RUN locationsim_append_route_locations\n");
             routePoints =
                 locationsim_append_route_locations(
                     manager,
@@ -685,6 +721,7 @@ static bool locationsim_apply_to_host(const LocationSimConfig *config,
 
         } else {
 
+            printf("[LOCSIM] RUN locationsim_append_loop_locations\n");
             routePoints =
                 locationsim_append_loop_locations(
                     manager,

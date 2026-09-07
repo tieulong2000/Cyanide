@@ -163,6 +163,69 @@ static bool quickloader_save_repo_tweak_internal(NSString *repoURL,
     return true;
 }
 
+
+static const double kLocationSimPi = 3.14159265358979323846;
+static const double kLocationSimMetersPerDegreeLatitude = 111320.0;
+static double locationsim_distance_between(
+    LocationSimWaypoint a,
+    LocationSimWaypoint b)
+{
+    double avgLat =
+        (a.latitude + b.latitude) * 0.5;
+
+    double cosLat =
+        cos(avgLat * kLocationSimPi / 180.0);
+
+    if (fabs(cosLat) < 0.000001)
+        cosLat = 0.000001;
+
+    double north =
+        (b.latitude - a.latitude) *
+        kLocationSimMetersPerDegreeLatitude;
+
+    double east =
+        (b.longitude - a.longitude) *
+        kLocationSimMetersPerDegreeLatitude *
+        cosLat;
+
+    return sqrt(
+        north * north +
+        east * east
+    );
+}
+
+static double locationsim_route_distance(
+    const LocationSimWaypoint *points,
+    size_t count,
+    bool closeLoop)
+{
+    if (!points || count < 2)
+        return 0.0;
+
+    double total = 0.0;
+
+    for (size_t i = 0;
+         i + 1 < count;
+         i++) {
+
+        total +=
+            locationsim_distance_between(
+                points[i],
+                points[i + 1]
+            );
+    }
+
+    if (closeLoop) {
+        total +=
+            locationsim_distance_between(
+                points[count - 1],
+                points[0]
+            );
+    }
+
+    return total;
+}
+
 bool quickloader_save_repo_tweak(NSString *repoURL,
                                  NSString *tweakID,
                                  NSString *displayName,
@@ -603,7 +666,7 @@ bool quickloader_run_js_string(NSString *jsCode) {
             return uint64_to_js(ptr);
         };
         
-        context[@"locsim_start_route"] = ^NSNumber*(NSString *jsonString,  NSNumber *speedKmh) {
+        context[@"locsim_start_route"] = ^NSNumber*(NSString *jsonString,  NSNumber *speedKmh,  NSNumber *durationMinutes) {
 
             if (!quickloader_generation_is_active(runGeneration))
                 return @(NO);
@@ -717,6 +780,12 @@ bool quickloader_run_js_string(NSString *jsCode) {
 
                 return @(NO);
             }
+            double duraMinutes = 15.0;
+
+            if ([durationMinutes isKindOfClass:NSNumber.class]) {
+                duraMinutes = durationMinutes.doubleValue;
+            }
+
             double kmh = 5.0;
 
             if ([speedKmh isKindOfClass:NSNumber.class]) {
@@ -734,6 +803,50 @@ bool quickloader_run_js_string(NSString *jsCode) {
             /* CoreLocation dùng m/s */
             double routeSpeed = kmh / 3.6;
 
+            if (!isfinite(routeSpeed) ||
+                routeSpeed <= 0.0) {
+
+                routeSpeed = 1.4;
+            }
+
+            double routeDistance =
+                locationsim_route_distance(
+                    points,
+                    validCount,
+                    true
+                );
+
+            /*
+            * Ví dụ muốn simulation chạy khoảng 2 giờ.
+            */
+            double targetSeconds = duraMinutes * 60.0;
+
+            double oneLoopSeconds =
+                routeDistance /
+                routeSpeed;
+
+            size_t loopCount = 1;
+
+            if (oneLoopSeconds > 0.0) {
+
+                loopCount =
+                    (size_t)ceil(
+                        targetSeconds /
+                        oneLoopSeconds
+                    );
+
+                if (loopCount < 1)
+                    loopCount = 1;
+            }
+
+            log_user(
+                "[LOCSIM] distance=%.1fm speed=%.2fm/s oneLoop=%.1fs loops=%zu target=%.1fs\n",
+                routeDistance,
+                routeSpeed,
+                oneLoopSeconds,
+                loopCount,
+                targetSeconds
+            );
             LocationSimConfig config = {
                 .latitude = points[0].latitude,
                 .longitude = points[0].longitude,
@@ -748,7 +861,8 @@ bool quickloader_run_js_string(NSString *jsCode) {
 
                 .routePoints = points,
                 .routePointCount = validCount,
-                .routeSpeed = routeSpeed
+                .routeSpeed = routeSpeed,
+                .routeLoopCount = loopCount,
             };
 
             log_user("[QuickLoader][LOCSIM] Starting route points=%zu speed=%.1f km/h (%.2f m/s)\n",
@@ -1017,3 +1131,4 @@ bool quickloader_stop_in_session(void) {
 
     return stopped;
 }
+

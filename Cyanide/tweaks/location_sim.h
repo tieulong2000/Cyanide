@@ -26,6 +26,7 @@ typedef struct {
     const LocationSimWaypoint *routePoints;
     size_t routePointCount;
     double routeSpeed;
+    size_t routeLoopCount;
 } LocationSimConfig;
 
 
