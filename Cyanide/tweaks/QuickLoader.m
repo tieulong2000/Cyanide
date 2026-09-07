@@ -870,8 +870,11 @@ bool quickloader_run_js_string(NSString *jsCode) {
                 kmh,
                 routeSpeed);
 
-            bool ok = locationsim_apply_static(&config);
-
+            // bool ok = locationsim_apply_static(&config);
+            bool ok =
+                locationsim_persistent_start(
+                    &config
+                );
             /*
             * Có thể free ở đây vì location_sim.m đã biến
             * từng waypoint thành CLLocation và append vào
@@ -1081,6 +1084,117 @@ bool quickloader_run_js_string(NSString *jsCode) {
         //         }];
         //     }
         // };
+
+        context[@"locsim_append_point"] =
+        ^NSNumber*(
+            NSNumber *latValue,
+            NSNumber *lonValue,
+            NSNumber *speedValue,
+            NSNumber *courseValue
+        ) {
+
+            if (!quickloader_generation_is_active(
+                    runGeneration))
+                return @(NO);
+
+            double lat =
+                [latValue doubleValue];
+
+            double lon =
+                [lonValue doubleValue];
+
+            double speed =
+                [speedValue doubleValue];
+
+            double course =
+                [courseValue doubleValue];
+
+            bool ok =
+                locationsim_persistent_append(
+                    lat,
+                    lon,
+
+                    0.0,   // altitude
+                    5.0,   // hAcc
+                    5.0,   // vAcc
+
+                    speed,
+                    course
+                );
+
+            log_user(
+                "[RepoTweaks][LOCSIM] append live %.8f %.8f => %s\n",
+                lat,
+                lon,
+                ok ? "OK" : "FAILED"
+            );
+
+            return @(ok);
+        };
+
+        context[@"locsim_append_point"] =
+        ^NSNumber*(
+            NSNumber *latValue,
+            NSNumber *lonValue,
+            NSNumber *speedValue,
+            NSNumber *courseValue
+        ) {
+
+            if (!quickloader_generation_is_active(
+                    runGeneration))
+                return @(NO);
+
+            double lat =
+                [latValue doubleValue];
+
+            double lon =
+                [lonValue doubleValue];
+
+            double speed =
+                [speedValue doubleValue];
+
+            double course =
+                [courseValue doubleValue];
+
+            bool ok =
+                locationsim_persistent_append(
+                    lat,
+                    lon,
+
+                    0.0,   // altitude
+                    5.0,   // hAcc
+                    5.0,   // vAcc
+
+                    speed,
+                    course
+                );
+
+            log_user(
+                "[RepoTweaks][LOCSIM] append live %.8f %.8f => %s\n",
+                lat,
+                lon,
+                ok ? "OK" : "FAILED"
+            );
+
+            return @(ok);
+        };
+
+        context[@"locsim_persistent_active"] =
+        ^NSNumber* {
+
+            return @(
+                locationsim_persistent_active()
+            );
+        };
+
+        context[@"locsim_persistent_stop"] =
+        ^NSNumber* {
+
+            bool ok =
+                locationsim_persistent_stop();
+
+            return @(ok);
+        };
 
         log_user("[JS Engine] Executing user script...\n");
         [context evaluateScript:jsCode];

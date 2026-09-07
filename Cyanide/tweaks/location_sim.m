@@ -888,3 +888,407 @@ bool locationsim_stop_strict_hosts(const char *hostProcess, bool launchHost)
     return anyOK;
 }
 
+static uint64_t g_locationsim_manager = 0;
+static bool g_locationsim_persistent_active = false;
+
+static char g_locationsim_persistent_host[64] = "Maps";
+
+bool locationsim_persistent_start(
+    const LocationSimConfig *config)
+{
+    if (!locationsim_validate_config(config)) {
+        printf("[LOCSIM][PERSIST] invalid config\n");
+        return false;
+    }
+
+    if (g_locationsim_persistent_active) {
+        printf(
+            "[LOCSIM][PERSIST] already active manager=0x%llx\n",
+            (unsigned long long)g_locationsim_manager
+        );
+
+        return false;
+    }
+
+    const char *host =
+        locationsim_host_or_default(
+            config->hostProcess
+        );
+
+    /*
+     * Bản test đầu tiên chỉ dùng Maps.
+     */
+    if (!locationsim_host_is_maps(host)) {
+        printf(
+            "[LOCSIM][PERSIST] test currently supports Maps only\n"
+        );
+
+        return false;
+    }
+
+    if (config->launchHost) {
+        if (!locationsim_launch_maps()) {
+            printf(
+                "[LOCSIM][PERSIST] Maps launch did not report success\n"
+            );
+        }
+    }
+
+    if (!locationsim_init_host(host, 0)) {
+
+        printf(
+            "[LOCSIM][PERSIST] cannot connect host=%s\n",
+            host
+        );
+
+        return false;
+    }
+
+    uint64_t manager =
+        locationsim_new_manager();
+
+    if (!r_is_objc_ptr(manager)) {
+
+        printf(
+            "[LOCSIM][PERSIST] manager creation failed\n"
+        );
+
+        destroy_remote_call();
+        return false;
+    }
+
+    /*
+     * Chỉ clean trước lần start đầu tiên.
+     */
+    locationsim_stop_manager(manager);
+
+    locationsim_configure_route_manager(
+        manager,
+        config
+    );
+
+    size_t routePoints = 0;
+
+    if (config->routePoints &&
+        config->routePointCount >= 2) {
+
+        routePoints =
+            locationsim_append_route_locations(
+                manager,
+                config
+            );
+    }
+
+    if (routePoints == 0) {
+
+        printf(
+            "[LOCSIM][PERSIST] no initial route points\n"
+        );
+
+        destroy_remote_call();
+        return false;
+    }
+
+    /*
+     * Giữ object sống trong Maps sau khi
+     * disconnect RemoteCall.
+     */
+    r_msg2(
+        manager,
+        "retain",
+        0, 0, 0, 0
+    );
+
+    printf(
+        "[LOCSIM][PERSIST] retained manager=0x%llx points=%zu\n",
+        (unsigned long long)manager,
+        routePoints
+    );
+
+    r_msg2(
+        manager,
+        "flush",
+        0, 0, 0, 0
+    );
+
+    printf(
+        "[LOCSIM][PERSIST] starting manager\n"
+    );
+
+    r_msg2(
+        manager,
+        "startLocationSimulation",
+        0, 0, 0, 0
+    );
+
+    locationsim_notify_timezone();
+
+    /*
+     * Lưu pointer remote.
+     */
+    g_locationsim_manager =
+        manager;
+
+    g_locationsim_persistent_active =
+        true;
+
+    snprintf(
+        g_locationsim_persistent_host,
+        sizeof(g_locationsim_persistent_host),
+        "%s",
+        host
+    );
+
+    printf(
+        "[LOCSIM][PERSIST] STARTED manager=0x%llx host=%s\n",
+        (unsigned long long)manager,
+        host
+    );
+
+    /*
+     * RemoteCall đóng,
+     * manager vẫn sống vì retain trong Maps.
+     */
+    destroy_remote_call();
+
+    return true;
+}
+
+bool locationsim_persistent_append(
+    double latitude,
+    double longitude,
+    double altitude,
+    double horizontalAccuracy,
+    double verticalAccuracy,
+    double speed,
+    double course)
+{
+    if (!g_locationsim_persistent_active ||
+        !g_locationsim_manager) {
+
+        printf(
+            "[LOCSIM][PERSIST] append requested but no active manager\n"
+        );
+
+        return false;
+    }
+
+    if (!isfinite(latitude) ||
+        !isfinite(longitude) ||
+        latitude < -90.0 ||
+        latitude > 90.0 ||
+        longitude < -180.0 ||
+        longitude > 180.0) {
+
+        printf(
+            "[LOCSIM][PERSIST] invalid coordinate\n"
+        );
+
+        return false;
+    }
+
+    /*
+     * Reconnect vào cùng process Maps.
+     *
+     * KHÔNG tạo manager mới.
+     */
+    if (!locationsim_init_host(
+            g_locationsim_persistent_host,
+            0)) {
+
+        printf(
+            "[LOCSIM][PERSIST] reconnect failed host=%s\n",
+            g_locationsim_persistent_host
+        );
+
+        return false;
+    }
+
+    uint64_t manager =
+        g_locationsim_manager;
+
+    /*
+     * Kiểm tra pointer cũ còn hợp lệ trong Maps.
+     *
+     * Nếu Maps bị kill/restart thì pointer này
+     * có thể không còn hợp lệ.
+     */
+    if (!r_is_objc_ptr(manager)) {
+
+        printf(
+            "[LOCSIM][PERSIST] manager pointer is no longer valid: 0x%llx\n",
+            (unsigned long long)manager
+        );
+
+        g_locationsim_manager = 0;
+        g_locationsim_persistent_active = false;
+
+        destroy_remote_call();
+        return false;
+    }
+
+    if (!isfinite(speed) ||
+        speed <= 0.0) {
+
+        speed = 1.4;
+    }
+
+    if (!isfinite(course) ||
+        course < 0.0 ||
+        course >= 360.0) {
+
+        course = 0.0;
+    }
+
+    if (!isfinite(horizontalAccuracy) ||
+        horizontalAccuracy <= 0.0) {
+
+        horizontalAccuracy = 5.0;
+    }
+
+    if (!isfinite(verticalAccuracy) ||
+        verticalAccuracy <= 0.0) {
+
+        verticalAccuracy = 5.0;
+    }
+
+    uint64_t location =
+        locationsim_build_location(
+            latitude,
+            longitude,
+            altitude,
+            horizontalAccuracy,
+            verticalAccuracy,
+            course,
+            speed,
+
+            /*
+             * Không phải initial location.
+             */
+            false
+        );
+
+    if (!r_is_objc_ptr(location)) {
+
+        printf(
+            "[LOCSIM][PERSIST] build location failed\n"
+        );
+
+        destroy_remote_call();
+        return false;
+    }
+
+    printf(
+        "[LOCSIM][PERSIST] LIVE APPEND manager=0x%llx lat=%.8f lon=%.8f speed=%.2f course=%.1f\n",
+        (unsigned long long)manager,
+        latitude,
+        longitude,
+        speed,
+        course
+    );
+
+    r_msg2(
+        manager,
+        "appendSimulatedLocation:",
+        location,
+        0, 0, 0
+    );
+
+    /*
+     * Thử flush nhưng TUYỆT ĐỐI:
+     *
+     * - không stop
+     * - không clear
+     * - không start lại
+     */
+    r_msg2(
+        manager,
+        "flush",
+        0, 0, 0, 0
+    );
+
+    printf(
+        "[LOCSIM][PERSIST] LIVE APPEND sent\n"
+    );
+
+    destroy_remote_call();
+
+    return true;
+}
+
+bool locationsim_persistent_stop(void)
+{
+    if (!g_locationsim_persistent_active ||
+        !g_locationsim_manager) {
+
+        printf(
+            "[LOCSIM][PERSIST] nothing to stop\n"
+        );
+
+        return true;
+    }
+
+    if (!locationsim_init_host(
+            g_locationsim_persistent_host,
+            0)) {
+
+        printf(
+            "[LOCSIM][PERSIST] stop reconnect failed\n"
+        );
+
+        return false;
+    }
+
+    uint64_t manager =
+        g_locationsim_manager;
+
+    if (r_is_objc_ptr(manager)) {
+
+        r_msg2(
+            manager,
+            "stopLocationSimulation",
+            0, 0, 0, 0
+        );
+
+        r_msg2(
+            manager,
+            "clearSimulatedLocations",
+            0, 0, 0, 0
+        );
+
+        r_msg2(
+            manager,
+            "flush",
+            0, 0, 0, 0
+        );
+
+        /*
+         * Cân bằng retain khi start.
+         */
+        r_msg2(
+            manager,
+            "release",
+            0, 0, 0, 0
+        );
+    }
+
+    printf(
+        "[LOCSIM][PERSIST] stopped manager=0x%llx\n",
+        (unsigned long long)manager
+    );
+
+    g_locationsim_manager = 0;
+    g_locationsim_persistent_active = false;
+
+    destroy_remote_call();
+
+    return true;
+}
+
+
+bool locationsim_persistent_active(void)
+{
+    return
+        g_locationsim_persistent_active &&
+        g_locationsim_manager != 0;
+}

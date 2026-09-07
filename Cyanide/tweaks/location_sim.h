@@ -35,4 +35,21 @@ bool locationsim_apply_strict_hosts(const LocationSimConfig *config);
 bool locationsim_stop(const char *hostProcess, bool launchHost);
 bool locationsim_stop_strict_hosts(const char *hostProcess, bool launchHost);
 
+
+bool locationsim_persistent_start(
+    const LocationSimConfig *config);
+
+bool locationsim_persistent_append(
+    double latitude,
+    double longitude,
+    double altitude,
+    double horizontalAccuracy,
+    double verticalAccuracy,
+    double speed,
+    double course);
+
+bool locationsim_persistent_stop(void);
+
+bool locationsim_persistent_active(void);
+
 #endif /* location_sim_h */
