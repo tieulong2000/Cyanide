@@ -29,7 +29,7 @@ typedef struct {
 static const int kLocationSimOptionalHostInitTimeoutMS = 15000;
 static const double kLocationSimPi = 3.14159265358979323846;
 static const double kLocationSimMetersPerDegreeLatitude = 111320.0;
-static const double kLocationSimRouteIntervalSeconds = 10.0;
+static const double kLocationSimRouteIntervalSeconds = 3.0;
 static const size_t kLocationSimRoutePointCount = 12;
 
 static NSInteger locationsim_ios_major_version(void)
